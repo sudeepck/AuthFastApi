@@ -1,0 +1,26 @@
+pip install fastapi uvicorn[standard]
+pip install python-multipart
+pip install python-jose[cryptography] --> 
+pip install passlib[bcrypt] --> pass hashing
+
+
+user 1 --> {
+  "name": "Sudeep",
+  "email": "sudeepck29@gmail.com",
+  "role": "python-Developer",
+  "password": "sud@2905"
+}
+
+{
+  "name": "sudarshan",
+  "email": "sudarshanck@gmail.com",
+  "role": "java",
+  "password": "sudarshan@2905"
+}
+
+{
+  "name": "sai",
+  "email": "sai@gmail.com",
+  "role": "python-Developer",
+  "password": "sai@2905"
+}
