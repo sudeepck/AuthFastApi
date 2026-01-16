@@ -3,12 +3,17 @@ from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from typing import List
 from datetime import timedelta
 from sqlalchemy.orm import Session  # session for DB operations
+from fastapi.middleware.cors import CORSMiddleware
 
 import src.config as sec ## security Configs
 from src.Model.User import Token, UserCreate, UserResponse, TokenData ## Pydantic Models
-from src.Database.database_userModel import User, Base ## SQLAlchemy Models
-from src.Database.dataBase import engine, SessionLocal ## DB Configs
+from src.Database.database_userModel import User ## SQLAlchemy Models
+from src.Database.dataBase import engine, SessionLocal, Base ## DB Configs
 from src.utils import verify_Password, get_pwd_hash, create_access_token, verify_token
+
+from src.Model.Product import Products
+from src.Database import database_productModel
+from src.json.dummyProducts import dummy_products
 
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
@@ -24,6 +29,14 @@ def get_db():
         yield db
     finally:
         db.close()
+        
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000"],
+    allow_credentials=True,
+    allow_methods=["*"],
+)
+
         
 ## Auth Dependent to get current active user
 ## Auth Dependecy
@@ -165,3 +178,56 @@ def delete_user(user_id: int, current_user: User = Depends(get_current_active_us
     db.delete(db_user)
     db.commit()
     return {"detail": "User deleted successfully"}
+
+##**************** product APIs ******************##
+
+def init__db():
+    db = SessionLocal()
+    count = db.query(database_productModel.Product).count()
+    print("COunt of products in DB :", count)
+    if count == 0 :
+        for product in dummy_products:
+            db.add(database_productModel.Product(**product.model_dump()))
+        db.commit()
+    
+init__db()
+
+@app.get("/products")
+def get_products(db : Session = Depends(get_db)):
+    db_products = db.query(database_productModel.Product).all()
+    return db_products
+
+@app.get("/products/{id}")  
+async def  get_product_by_id(id: int, db: Session = Depends(get_db)):
+    db_product =  db.query(database_productModel.Product).filter(database_productModel.Product.id == id).first()
+    return f"No Product found with product id :{id}" if db_product is None else db_product
+
+@app.post("/products")
+def add_product(product: Products, db: Session = Depends(get_db)):
+    db.add(database_productModel.Product(**product.model_dump()))
+    db.commit()
+    return product
+
+
+@app.put("/products/{id}")
+def update_product(id: int, product: Products, db: Session = Depends(get_db)):
+    db_product = db.query(database_productModel.Product).filter(database_productModel.Product.id == id).first()
+    if db_product:
+        db_product.name = product.name or db_product.name
+        db_product.description = product.description or db_product.description
+        db_product.price = product.price or db_product.price
+        db_product.quantity = product.quantity or db_product.quantity
+        db.commit()
+        return f"product with id : {id} updated successfully"
+    else:   
+        return {"error": "no such Product exists to update"}
+
+@app.delete("/products/{id}")
+def delete_product(id: int, db: Session = Depends(get_db)):
+    db_produc = db.query(database_productModel.Product).filter(database_productModel.Product.id == id).first()
+    if db_produc:
+        db.delete(db_produc)
+        db.commit()
+        return f"Product with id : {id} deleted successfully"
+    else:
+        return {"error": "Product not found"}
